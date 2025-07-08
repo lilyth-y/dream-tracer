@@ -1,0 +1,241 @@
+// 커뮤니티 페이지
+"use client"
+
+import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Users, Heart, MessageCircle, LayoutDashboard, BookOpen, BarChart2, Palette, Brain, PenLine } from "lucide-react"
+import Link from "next/link"
+
+// 샘플 커뮤니티 데이터
+const communityPosts = [
+	{
+		id: "1",
+		author: {
+			name: "꿈꾸는자",
+			avatar: "/placeholder.svg?height=40&width=40",
+			level: "드림 마스터",
+		},
+		title: "오늘 정말 신기한 루시드 드림을 경험했어요!",
+		content:
+			"꿈 속에서 제가 꿈을 꾸고 있다는 걸 깨달았는데, 그 순간부터 자유자재로 날아다닐 수 있었어요. 처음 경험하는 루시드 드림이라 너무 신기했습니다.",
+		tags: ["루시드드림", "비행", "첫경험"],
+		likes: 24,
+		comments: [], // 샘플: 빈 배열로 변경
+		shares: 3,
+		timeAgo: "2시간 전",
+		category: "경험공유",
+		createdAt: new Date().toISOString(),
+	},
+	{
+		id: "2",
+		author: {
+			name: "달빛여행자",
+			avatar: "/placeholder.svg?height=40&width=40",
+			level: "드림 익스플로러",
+		},
+		title: "반복되는 꿈의 의미가 궁금해요",
+		content: "계속해서 같은 장소, 같은 상황의 꿈을 꾸고 있어요. 어떤 의미일까요? 비슷한 경험 있으신 분 계신가요?",
+		tags: ["반복꿈", "해석", "질문"],
+		likes: 15,
+		comments: [],
+		shares: 2,
+		timeAgo: "4시간 전",
+		category: "질문",
+		createdAt: new Date().toISOString(),
+	},
+	{
+		id: "3",
+		author: {
+			name: "꿈해석가",
+			avatar: "/placeholder.svg?height=40&width=40",
+			level: "드림 아날리스트",
+		},
+		title: "꿈 일기 작성 팁 공유합니다",
+		content:
+			"3년간 꿈 일기를 써온 경험을 바탕으로 효과적인 꿈 기록 방법을 공유해드려요. 꿈을 더 생생하게 기억하는 방법도 함께!",
+		tags: ["팁", "꿈일기", "기록법"],
+		likes: 45,
+		comments: [],
+		shares: 12,
+		timeAgo: "1일 전",
+		category: "팁",
+		createdAt: new Date().toISOString(),
+	},
+]
+
+// Post, Comment 타입 예시(실제 구조에 맞게 수정)
+type Post = {
+  id: string;
+  author: {
+	name: string;
+	avatar: string;
+	level: string;
+  };
+  title: string;
+  content: string;
+  tags: string[];
+  likes: number;
+  comments: Comment[];
+  shares: number;
+  timeAgo: string;
+  category: string;
+  createdAt: string; // ISO date string
+};
+
+type Comment = {
+  id: string;
+  author: string;
+  text: string;
+};
+
+export default function CommunityPage() {
+	const [posts, setPosts] = useState<Post[]>([])
+	const [newContent, setNewContent] = useState("")
+	const [loading, setLoading] = useState(false)
+	useEffect(() => {
+		fetch("/api/community")
+			.then((res) => res.json())
+			.then((data) => {
+				// Ensure all posts have createdAt
+				const postsWithCreatedAt = (data.posts || []).map((post: any) => ({
+					...post,
+					createdAt: post.createdAt || new Date().toISOString(),
+				}))
+				setPosts(postsWithCreatedAt)
+			})
+	}, [])
+	const handlePost = async () => {
+		if (!newContent.trim()) return
+		setLoading(true)
+		const res = await fetch("/api/community", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ content: newContent })
+		})
+		const data = await res.json()
+		// Ensure createdAt is set (fallback to now if missing)
+		const postWithCreatedAt = {
+			...data.post,
+			createdAt: data.post.createdAt || new Date().toISOString(),
+		}
+		setPosts([postWithCreatedAt, ...posts])
+		setNewContent("")
+		setLoading(false)
+	}
+	const handleLike = async (id: string) => {
+		await fetch("/api/community", {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ postId: id, like: true })
+		})
+		setPosts(posts.map(p => p.id === id ? { ...p, likes: p.likes + 1 } : p))
+	}
+	const handleComment = async (id: string, comment: string) => {
+		if (!comment.trim()) return
+		await fetch("/api/community", {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ postId: id, comment })
+		})
+		setPosts(posts.map(p => p.id === id ? { ...p, comments: [...(p.comments||[]), { id: Date.now().toString(), author: "익명", text: comment }] } : p))
+	}
+	return (
+		<div className="flex min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
+			{/* 좌측 대시보드 카드 */}
+			<aside className="hidden md:flex flex-col gap-6 w-64 p-6">
+				<div className="mb-8">
+					<h1 className="text-3xl font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent neon-text drop-shadow-lg">드림아이</h1>
+				</div>
+				<div className="space-y-4">
+					<Card className="shadow-md">
+						<CardContent className="p-4 flex flex-col gap-3">
+							<NavButton icon={<LayoutDashboard className="h-5 w-5" />} label="대시보드" href="/" />
+							<NavButton icon={<PenLine className="h-5 w-5" />} label="꿈 일기 작성" href="/write" />
+							<NavButton icon={<BookOpen className="h-5 w-5" />} label="꿈 일기 보기" href="/dreams" />
+							<NavButton icon={<Brain className="h-5 w-5" />} label="데자뷰 파인더" href="/dejavu" />
+							<NavButton icon={<Palette className="h-5 w-5" />} label="꿈 시각화" href="/visualize" />
+							<NavButton icon={<BarChart2 className="h-5 w-5" />} label="꿈 통계" href="/stats" />
+							<NavButton icon={<Users className="h-5 w-5" />} label="커뮤니티" href="/community" />
+						</CardContent>
+					</Card>
+				</div>
+			</aside>
+			{/* 메인 컨텐츠 */}
+			<main className="flex-1 max-w-2xl mx-auto py-8 px-4 md:px-12 space-y-6">
+				<Card>
+					<CardHeader>
+						<CardTitle>꿈 공유하기</CardTitle>
+					</CardHeader>
+					<CardContent className="space-y-2">
+						<Textarea value={newContent} onChange={e => setNewContent(e.target.value)} placeholder="꿈을 자유롭게 공유해보세요!" />
+						<Button onClick={handlePost} disabled={loading}>{loading ? '등록 중...' : '공유하기'}</Button>
+					</CardContent>
+				</Card>
+				{posts.map(post => (
+					<Card key={post.id} className="space-y-2">
+						<CardHeader>
+							<div className="flex items-center gap-2">
+								<span className="font-bold text-indigo-700">{post.author.name}</span>
+								<span className="text-xs text-gray-400">{new Date(post.createdAt).toLocaleString('ko-KR')}</span>
+							</div>
+						</CardHeader>
+						<CardContent>
+							<div className="mb-2 whitespace-pre-line">{post.content}</div>
+							<div className="flex items-center gap-4">
+								<Button variant="ghost" size="sm" onClick={() => handleLike(post.id)}>
+									<Heart className="h-4 w-4 text-pink-500" /> {post.likes}
+								</Button>
+								<MessageCircle className="h-4 w-4 text-gray-400" /> {(post.comments||[]).length}
+							</div>
+							<div className="mt-2 space-y-1">
+								{(post.comments||[]).map((c: Comment) => (
+									<div key={c.id} className="text-xs text-gray-700 pl-2 border-l">
+										<span className="font-semibold">{c.author}:</span> {c.text}
+									</div>
+								))}
+								<CommentInput postId={post.id} onComment={handleComment} />
+							</div>
+						</CardContent>
+					</Card>
+				))}
+			</main>
+			{/* 우측 네비게이션 바 */}
+			<nav className="hidden lg:flex flex-col gap-4 w-40 p-6 items-end">
+				<div className="sticky top-24 space-y-3">
+					<NavButton icon={<LayoutDashboard className="h-5 w-5" />} label="대시보드" href="/" />
+					<NavButton icon={<PenLine className="h-5 w-5" />} label="꿈 일기 작성" href="/write" />
+					<NavButton icon={<BookOpen className="h-5 w-5" />} label="꿈 일기 보기" href="/dreams" />
+					<NavButton icon={<Brain className="h-5 w-5" />} label="데자뷰 파인더" href="/dejavu" />
+					<NavButton icon={<Palette className="h-5 w-5" />} label="꿈 시각화" href="/visualize" />
+					<NavButton icon={<BarChart2 className="h-5 w-5" />} label="꿈 통계" href="/stats" />
+					<NavButton icon={<Users className="h-5 w-5" />} label="커뮤니티" href="/community" />
+				</div>
+			</nav>
+		</div>
+	)
+}
+
+function NavButton({ icon, label, href }: { icon: React.ReactNode; label: string; href: string }) {
+	return (
+		<Link href={href} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-indigo-100 transition text-indigo-700 font-medium text-sm w-full">
+			{icon}
+			<span>{label}</span>
+		</Link>
+	)
+}
+
+function CommentInput({ postId, onComment }: { postId: string; onComment: (id: string, comment: string) => void }) {
+	const [comment, setComment] = useState("")
+	return (
+		<form onSubmit={e => { e.preventDefault(); onComment(postId, comment); setComment("") }} className="flex gap-2 mt-1">
+			<Input value={comment} onChange={e => setComment(e.target.value)} placeholder="댓글 달기" className="text-xs" />
+			<Button type="submit" size="sm" variant="outline">등록</Button>
+		</form>
+	)
+}
